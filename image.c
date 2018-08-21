@@ -52,7 +52,8 @@ Image* Image_alloc(int rows, int cols, PixelType type){
   img->data = (unsigned char*) malloc(rows*cols*bpp);
   img->row_data = (unsigned char**) malloc(sizeof(unsigned char*)*rows);
   unsigned char* base_data = img->data;
-  for (size_t i=0; i<rows; i++){
+  size_t i;
+  for (i=0; i<rows; i++){
     img->row_data[i]=base_data;
     base_data += cols*bpp;
   }
@@ -213,12 +214,12 @@ Image* Image_convert(Image* src, PixelType type){
   } else return 0;
   
   Image* img=Image_alloc(src->rows, src->cols, type);
-  
-  for (int r=0; r<src->rows; r++){
+  int r,c,i;
+  for (r=0; r<src->rows; r++){
     float* destptr=(float*) img->row_data[r];
     unsigned char* srcptr = src->row_data[r];
-    for (int c=0; c<src->cols; c++){
-      for (int i=0; i<src->channels; i++){
+    for (c=0; c<src->cols; c++){
+      for (i=0; i<src->channels; i++){
 	if (src->type==MONO16 || src->type==RGB16){
 	  unsigned int c_up = *srcptr;
 	  srcptr++;

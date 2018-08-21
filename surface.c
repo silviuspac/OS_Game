@@ -16,7 +16,8 @@ void Surface_init(Surface* s, int rows, int cols, float row_scale, float col_sca
   memset(s->normals, 0, (sizeof(Vec3)*s->n_points));
   s->point_rows = (Vec3**) malloc  (sizeof (Vec3*)*rows);
   s->normal_rows = (Vec3**) malloc  (sizeof (Vec3*)*rows);
-  for (int i = 0; i<rows; i++){
+  int i;
+  for (i = 0; i<rows; i++){
     s->point_rows[i] = s->points + (i*cols);
     s->normal_rows[i] = s->normals + (i*cols);
   }
@@ -49,21 +50,22 @@ void Surface_fromMatrix(Surface* s,
 			    float row_scale, float col_scale, float z_scale) {
   Surface_init(s,rows,cols, row_scale, col_scale);
   // compute the points
-  for (int r=0; r<rows; r++) {
+  int r,c;
+  for (r=0; r<rows; r++) {
     Vec3* points_row_ptr = s->point_rows[r];
-    for (int c=0; c<cols; c++) {
+    for (c=0; c<cols; c++) {
       points_row_ptr->values[0]=row_scale*r;
       points_row_ptr->values[1]=col_scale*c;
       points_row_ptr->values[2]=z_scale*m[r][c];
       points_row_ptr++;
     }
   }
-  for (int r=1; r<rows-1; r++) {
+  for (r=1; r<rows-1; r++) {
     Vec3* normals_row_ptr = s->normal_rows[r];
     Vec3* points_row_ptr = s->point_rows[r];
     Vec3* points_row_prev = s->point_rows[r-1];
     Vec3* points_row_next = s->point_rows[r+1];
-    for (int c=1; c<cols-1; c++) {
+    for (c=1; c<cols-1; c++) {
       Vec3 delta_px, delta_py;
       v3compose(&delta_px, points_row_next, points_row_prev, 1, -1);
       v3compose(&delta_py, points_row_ptr+1, points_row_ptr-1, 1, -1);

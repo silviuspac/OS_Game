@@ -217,14 +217,14 @@ void Surface_draw(Surface* s) {
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     glBindTexture(GL_TEXTURE_2D, s->gl_texture); 
   }
-    
-  for (int r=0; r<s->rows-1; r++) {
+  int r,c;
+  for (r=0; r<s->rows-1; r++) {
     Vec3* normals_row_ptr = s->normal_rows[r];
     Vec3* normals_row_next = s->normal_rows[r+1];
     Vec3* points_row_ptr = s->point_rows[r];
     Vec3* points_row_next = s->point_rows[r+1];
     glBegin(GL_TRIANGLE_STRIP);
-    for (int c=0; c<s->cols-1; c++){
+    for (c=0; c<s->cols-1; c++){
       glNormal3fv(normals_row_ptr->values);
       glTexCoord2f((float) c/s->cols, (float)r/s->rows);
       glVertex3fv(points_row_ptr->values);

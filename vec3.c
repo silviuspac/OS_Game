@@ -34,10 +34,11 @@ void v3normalize(Vec3* dest){
 
 void mat4mult(float dest[], float a[], float b[]){
   memset(dest, 0, 16*sizeof(float));
-  for(int r=0; r<4; r++)
-    for (int c=0; c<4; c++){
+  int r,c,i;
+  for(r=0; r<4; r++)
+    for (c=0; c<4; c++){
       float* mrc=dest+(c*4+r);
-      for (int i=0; i<4; i++){
+      for (i=0; i<4; i++){
 	(*mrc) +=  a[i*4+r] * b[4*c+i];
       }
     }
