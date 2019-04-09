@@ -17,3 +17,8 @@
 
 #define ERROR_HELPER(ret, msg)          GENERIC_ERROR_HELPER((ret < 0), errno, msg)
 #define PTHREAD_ERROR_HELPER(ret, msg)  GENERIC_ERROR_HELPER((ret != 0), ret, msg)
+
+
+#define QUIT "QUIT"
+#define MAX_CONNESSIONI 3
+#define DEBUG 1
