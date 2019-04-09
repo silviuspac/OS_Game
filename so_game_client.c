@@ -16,6 +16,7 @@
 #include "world.h"
 #include "vehicle.h"
 #include "world_viewer.h"
+#include "so_game_protocol.h"
 
 //connessione
 uint16_t port_number;
@@ -31,77 +32,92 @@ WorldViewer viewer;
 World world;
 Vehicle* vehicle; // The vehicle
 
-void keyPressed(unsigned char key, int x, int y)
-{
-  switch(key){
-  case 27:
-    glutDestroyWindow(window);
-    exit(0);
-  case ' ':
-    vehicle->translational_force_update = 0;
-    vehicle->rotational_force_update = 0;
-    break;
-  case '+':
-    viewer.zoom *= 1.1f;
-    break;
-  case '-':
-    viewer.zoom /= 1.1f;
-    break;
-  case '1':
-    viewer.view_type = Inside;
-    break;
-  case '2':
-    viewer.view_type = Outside;
-    break;
-  case '3':
-    viewer.view_type = Global;
-    break;
+int id;
+
+//funzioni
+
+int getID(int sdesc){
+  char send[BUFFERSIZE];
+  char receive[BUFFERSIZE];
+  IdPacket* request = (IdPacket*)malloc(sizeof(IdPacket));
+  PacketHeader header;
+  header.type = GetId;
+  request->header = header;
+  request->id = -1;
+
+  int size = Packet_serialize(send, &(request->header));
+  if(size == -1) return -1;
+  int sent = 0;
+  int ret = 0;
+
+  while(sent<size){
+    ret = send(sdesc, send+sent, size-sent, 0);
+    if(ret == 1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Errore richiesta id");
+    if(ret == 0) break;
+    sent += ret;
   }
-}
 
+  Packet_free(&(request->header));
+  int header_len = sizeof(PacketHeader);
+  int msg_len = 0;
 
-void specialInput(int key, int x, int y) {
-  switch(key){
-  case GLUT_KEY_UP:
-    vehicle->translational_force_update += 0.1;
-    break;
-  case GLUT_KEY_DOWN:
-    vehicle->translational_force_update -= 0.1;
-    break;
-  case GLUT_KEY_LEFT:
-    vehicle->rotational_force_update += 0.1;
-    break;
-  case GLUT_KEY_RIGHT:
-    vehicle->rotational_force_update -= 0.1;
-    break;
-  case GLUT_KEY_PAGE_UP:
-    viewer.camera_z+=0.1;
-    break;
-  case GLUT_KEY_PAGE_DOWN:
-    viewer.camera_z-=0.1;
-    break;
+  while(msg_len<header_len){
+    ret = recv(sdesc, receive + msg_len, header_len - msg_len, 0);
+    if(ret==-1 && errno==EINTR) continue;
+    ERROR_HELPER(msg_len, "Errore lettura da da socket");
+    msg_len += ret;
   }
+
+  PacketHeader* h = (PacketHeader*)receive;
+  size = h->size - header_len;
+
+  msg_len = 0;
+  while(msg_len < size){
+    ret = recv(sdesc, receive+msg_len+header_len, size - msg_len, 0);
+    if(ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(msg_len,"Errore lettura da socket");
+    msg_len += ret;
+  }
+
+  IdPacket* des = (IdPacket*)Packet_deserialize(receive, msg_len+header_len),
+  printf("[getID] Ricevuti %d bytes \n", msg_len+header_len);
+
+  return id;
 }
 
 
-void display(void) {
-  WorldViewer_draw(&viewer);
+
+int sendVehicleTexture(int socket, Image* tx, int id){
+  char send[BUFFERSIZE];
+  ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
+  PacketHeader header;
+  header.type = PostTexture;
+  request->header = header;
+  request->id = id;
+  request->image = texture;
+
+  int size = Packet_serialize(buf_send, &(request->header));
+  if (size == -1) return -1;
+
+  int sent = 0;
+  int ret = 0;
+
+  while (sent < size) {
+    ret = send(socket, send + sent, size - sent, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Errore invio texture veicolo");
+    if (ret == 0) break;
+    sent += ret;
+  }
+
+  printf("[sendVehicleTexture] Inviati %d bytes \n", sent);
+  return 0;
 }
 
 
-void reshape(int width, int height) {
-  WorldViewer_reshapeViewport(&viewer, width, height);
-}
 
-void idle(void) {
-  World_update(&world);
-  usleep(30000);
-  glutPostRedisplay();
-  
-  // decay the commands
-  vehicle->translational_force_update *= 0.999;
-  vehicle->rotational_force_update *= 0.7;
-}
+
 
 int main(int argc, char **argv) {
   if (argc<3) {
