@@ -83,6 +83,9 @@ int getID(int sdesc){
   IdPacket* des = (IdPacket*)Packet_deserialize(receive, msg_len+header_len),
   printf("[getID] Ricevuti %d bytes \n", msg_len+header_len);
 
+  int id = des->id;
+  Packet_free(&(des->header));
+
   return id;
 }
 
@@ -113,6 +116,121 @@ int sendVehicleTexture(int socket, Image* tx, int id){
 
   printf("[sendVehicleTexture] Inviati %d bytes \n", sent);
   return 0;
+}
+
+Image* getElevationMap(int socket){
+  char send[BUFFERSIZE];
+  char receive[BUFFERSIZE];
+
+  ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
+
+  PacketHeader header;
+  header.type = GetElevation;
+
+  request->header = header;
+  request->id = -1;
+
+  int size = Packet_serialize(send, &(request->header));
+  if(size == -1) return NULL;
+
+  int sent = 0;
+  int ret = 0;
+
+  while(sent < size){
+    ret = send(socket, send+sent, size - sent, 0);
+    if(ret==-1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Errore richiesta Elevation Map");
+    if(ret==0) break;
+    sent+=ret;
+  }
+
+    printf("[getElevationMap] Inviati %d bytes \n", sent);
+  int msg_len = 0;
+  int header_len = sizeof(PacketHeader);
+
+  while (msg_len < header_len) {
+    ret = recv(socket, receive, header_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Cannot read from socket");
+    msg_len += ret;
+  }
+
+  PacketHeader* in_pak = (PacketHeader*)receive;
+  size = in_pak->size - header_len;
+  msg_len = 0;
+
+  while (msg_len < size) {
+    ret = recv(socket, receive + msg_len + header_len, size - msg_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Cannot read from socket");
+    msg_len += ret;
+  }
+
+  ImagePacket* des =
+      (ImagePacket*)Packet_deserialize(buf_rcv, msg_len + ph_len);
+  printf("[getElevationMap] Ricevuti %d bytes \n", msg_len + header_len);
+  Packet_free(&(request->header));
+  Image* res = des->image;
+  free(des);
+  return res;
+
+}
+
+Image* getTextureMap(int socket) {
+  char send[BUFFERSIZE];
+  char receive[BUFFERSIZE];
+
+  ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
+
+  PacketHeader header;
+  header.type = GetTexture;
+  request->header = header;
+  request->id = -1;
+
+  int size = Packet_serialize(send, &(request->header));
+  if (size == -1) return NULL;
+
+  int sent = 0;
+  int ret = 0;
+
+  while (sent < size) {
+    ret = send(socket, send + sent, size - sent, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Send Error");
+    if (ret == 0) break;
+    sent += ret;
+  }
+
+  printf("[getTextureMap] Inviati %d bytes \n", sent);
+  int msg_len = 0;
+  int header_len = sizeof(PacketHeader);
+
+  while (msg_len < header_len) {
+    ret = recv(socket, receive, header_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Errore lettura socket");
+    msg_len += ret;
+  }
+
+  PacketHeader* in_pak = (PacketHeader*)receive;
+  size = in_pak->size - header_len;
+  printf("[getTextureMap] Size da leggere %d \n", size);
+
+  msg_len = 0;
+  while (msg_len < size) {
+    ret = recv(socket, receive + msg_len + header_len, size - msg_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Errore lettura socket");
+    msg_len += ret;
+  }
+
+  ImagePacket* des =
+      (ImagePacket*)Packet_deserialize(receive, msg_len + header_len);
+  printf("[getTextureMap] Ricevuti %d bytes \n", msg_len + header_len);
+  Packet_free(&(request->header));
+  Image* res = des->image;
+  free(des);
+  return res;
 }
 
 
@@ -168,7 +286,6 @@ int main(int argc, char **argv) {
   fprintf(stdout, "[Main] Inizializzazione ID, richieste map_elevation, map_texture\n");
 
   my_id = getID(sdesc);
-  local_world->ids[0] = my_id;
   fprintf(stdout, "Ricevuto id n: %d\n", my_id);
 
   Image* surface_elevation = getElevationMap(sdesc);
