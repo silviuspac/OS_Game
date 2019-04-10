@@ -23,3 +23,4 @@
 #define MAX_CONNESSIONI 3
 #define DEBUG 1
 #define BUFFERSIZE 1000000000
+#define PORT 4444
