@@ -20,7 +20,7 @@
 
 //struct
 typedef struct localWorld {
-    int id_list[WORLD_SIZE]; //TODO aggiungere WORLD_SIZE in common.h
+    int id_list[WORLDSIZE]; //TODO aggiungere WORLD_SIZE in common.h
     int players_online;
     Vehicle** vehicles;
 } localWorld;
@@ -38,7 +38,6 @@ typedef struct {
 } UpdaterArgs;
 
 int window;
-WorldViewer viewer;
 World world;
 Vehicle* vehicle; // The vehicle
 
@@ -56,7 +55,7 @@ void* UDPSender(void* args){
   udp_args_t* udp_args = (udp_args_t*)args;
   int udp_socket = udp_args->udp_socket;
   struct sockaddr_in saddr = udp_args->saddr;
-  int saddr_len = sizeof(server_addr);
+  int saddr_len = sizeof(saddr);
 
   while (1) {
     VehicleUpdatePacket* vehicle_packet = (VehicleUpdatePacket*)malloc(sizeof(VehicleUpdatePacket));
@@ -70,7 +69,7 @@ void* UDPSender(void* args){
     int buff_size = Packet_serialize(buff, &vehicle_packet->header);
 
     ret = sendto(udp_socket, buff, buff_size, 0,
-                (const struct soaddr*)&seaddr, (socklen_t)saddr_len);
+                (const struct sockaddr*)&saddr, (socklen_t)saddr_len);
     ERROR_HELPER(ret, "Errore invio updates al server");
 
     usleep(TIME_TO_SLEEP);
@@ -132,7 +131,7 @@ void* UDPReceiver(void* args){
 //funzioni
 
 int getID(int sdesc){
-  char send[BUFFERSIZE];
+  char sendb[BUFFERSIZE];
   char receive[BUFFERSIZE];
   IdPacket* request = (IdPacket*)malloc(sizeof(IdPacket));
   PacketHeader header;
@@ -140,13 +139,13 @@ int getID(int sdesc){
   request->header = header;
   request->id = -1;
 
-  int size = Packet_serialize(send, &(request->header));
+  int size = Packet_serialize(sendb, &(request->header));
   if(size == -1) return -1;
   int sent = 0;
   int ret = 0;
 
   while(sent<size){
-    ret = send(sdesc, send+sent, size-sent, 0);
+    ret = send(sdesc, sendb+sent, size-sent, 0);
     if(ret == 1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Errore richiesta id");
     if(ret == 0) break;
@@ -175,7 +174,7 @@ int getID(int sdesc){
     msg_len += ret;
   }
 
-  IdPacket* des = (IdPacket*)Packet_deserialize(receive, msg_len+header_len),
+  IdPacket* des = (IdPacket*)Packet_deserialize(receive, msg_len+header_len);
   printf("[getID] Ricevuti %d bytes \n", msg_len+header_len);
 
   int id = des->id;
@@ -187,22 +186,22 @@ int getID(int sdesc){
 
 
 int sendVehicleTexture(int socket, Image* tx, int id){
-  char send[BUFFERSIZE];
+  char sendb[BUFFERSIZE];
   ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
   PacketHeader header;
   header.type = PostTexture;
   request->header = header;
   request->id = id;
-  request->image = texture;
+  request->image = tx;
 
-  int size = Packet_serialize(buf_send, &(request->header));
+  int size = Packet_serialize(sendb, &(request->header));
   if (size == -1) return -1;
 
   int sent = 0;
   int ret = 0;
 
   while (sent < size) {
-    ret = send(socket, send + sent, size - sent, 0);
+    ret = send(socket, sendb + sent, size - sent, 0);
     if (ret == -1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Errore invio texture veicolo");
     if (ret == 0) break;
@@ -214,7 +213,7 @@ int sendVehicleTexture(int socket, Image* tx, int id){
 }
 
 Image* getElevationMap(int socket){
-  char send[BUFFERSIZE];
+  char sendb[BUFFERSIZE];
   char receive[BUFFERSIZE];
 
   ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
@@ -225,14 +224,14 @@ Image* getElevationMap(int socket){
   request->header = header;
   request->id = -1;
 
-  int size = Packet_serialize(send, &(request->header));
+  int size = Packet_serialize(sendb, &(request->header));
   if(size == -1) return NULL;
 
   int sent = 0;
   int ret = 0;
 
   while(sent < size){
-    ret = send(socket, send+sent, size - sent, 0);
+    ret = send(socket, sendb+sent, size - sent, 0);
     if(ret==-1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Errore richiesta Elevation Map");
     if(ret==0) break;
@@ -262,7 +261,7 @@ Image* getElevationMap(int socket){
   }
 
   ImagePacket* des =
-      (ImagePacket*)Packet_deserialize(buf_rcv, msg_len + ph_len);
+      (ImagePacket*)Packet_deserialize(receive, msg_len + header_len);
   printf("[getElevationMap] Ricevuti %d bytes \n", msg_len + header_len);
   Packet_free(&(request->header));
   Image* res = des->image;
@@ -272,7 +271,7 @@ Image* getElevationMap(int socket){
 }
 
 Image* getTextureMap(int socket) {
-  char send[BUFFERSIZE];
+  char sendb[BUFFERSIZE];
   char receive[BUFFERSIZE];
 
   ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
@@ -282,14 +281,14 @@ Image* getTextureMap(int socket) {
   request->header = header;
   request->id = -1;
 
-  int size = Packet_serialize(send, &(request->header));
+  int size = Packet_serialize(sendb, &(request->header));
   if (size == -1) return NULL;
 
   int sent = 0;
   int ret = 0;
 
   while (sent < size) {
-    ret = send(socket, send + sent, size - sent, 0);
+    ret = send(socket, sendb + sent, size - sent, 0);
     if (ret == -1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Send Error");
     if (ret == 0) break;
@@ -366,7 +365,7 @@ int main(int argc, char **argv) {
   saddr.sin_port = port;
 
   int reuseaddr = 1;
-  ret = setsockopt(sdesc, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr));
+  ret = setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr));
   ERROR_HELPER (ret, "Errore SO_REUSEADDR");
 
   ret = connect(tcp_socket, (struct sockaddr*)&saddr, sizeof(struct sockaddr_in));
@@ -384,22 +383,22 @@ int main(int argc, char **argv) {
 
   printf("[Main] Inizializzazione ID, richieste map_elevation, map_texture\n");
 
-  id = getID(tcp_socket);
-  printf("Ricevuto ID n: %d\n", my_id);
+  int id = getID(tcp_socket);
+  printf("Ricevuto ID n: %d\n", id);
 
-  Image* surface_elevation = getElevationMap(sdesc);
+  Image* surface_elevation = getElevationMap(tcp_socket);
   printf("Elevation ricevuta\n");
 
-  Image* surface_texture = getTextureMap(sdesc);
+  Image* surface_texture = getTextureMap(tcp_socket);
   printf("Texture ricevuta\n");
 
   sendVehicleTexture(tcp_socket, my_texture, id);
   printf("Texture veicolo inviate\n");
 
   // construct the world
-  World_init(&world, map_elevation, map_texture, 0.5, 0.5, 0.5);
+  World_init(&world, surface_elevation, surface_texture, 0.5, 0.5, 0.5);
   vehicle=(Vehicle*) malloc(sizeof(Vehicle));
-  Vehicle_init(&vehicle, &world, id, my_texture_from_server);
+  Vehicle_init(vehicle, &world, id, my_texture);
   World_addVehicle(&world, vehicle);
 
   // spawn a thread that will listen the update messages from
@@ -412,7 +411,7 @@ int main(int argc, char **argv) {
 
   pthread_t UDPSender_thread, UDPReceiver_thread;
   udp_args_t udp_args;
-  udp_args.server_addr = udp_server;
+  udp_args.saddr = udp_server;
   udp_args.udp_socket = udp_socket;
   udp_args.tcp_socket = tcp_socket;
 

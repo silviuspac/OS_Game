@@ -1,4 +1,4 @@
-#ifndef COMMON_H
+//#ifndef COMMON_H
 #define COMMON_H
 
 #include <stdio.h>
@@ -24,3 +24,6 @@
 #define DEBUG 1
 #define BUFFERSIZE 1000000000
 #define PORT 4444
+#define WORLDSIZE
+#define TIME_TO_SLEEP 0.1
+#define SERVER_ADDRESS "127.0.0.1"
