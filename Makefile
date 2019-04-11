@@ -26,6 +26,7 @@ HEADERS=helpers.h\
 	vehicle.h\
 	world.h\
 	world_viewer.h\
+	common.h\
 
 %.o:	%.c $(HEADERS)
 	$(CC) $(CCOPTS) -c -o $@  $<
