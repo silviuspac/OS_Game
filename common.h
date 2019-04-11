@@ -24,6 +24,10 @@
 #define DEBUG 1
 #define BUFFERSIZE 1000000000
 #define PORT 4444
-#define WORLDSIZE
+#define WORLD_SIZE 512
 #define TIME_TO_SLEEP 0.1
 #define SERVER_ADDRESS "127.0.0.1"
+#define RECEIVER_SLEEP_C 50000
+#define UNTOUCHED 0
+#define TOUCHED 1
+#endif

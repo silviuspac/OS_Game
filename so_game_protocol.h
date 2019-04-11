@@ -1,15 +1,18 @@
 #pragma once
 #include "vehicle.h"
+#include <time.h>
+#include "common.h"
 
 //ia brief desription required
 typedef enum {
   GetId=0x1,
-  GetTexture=0x2,     //which packet uses this??
-  GetElevation=0x3,   //which packet uses this??
+  GetTexture=0x2, 
+  GetElevation=0x3,   
   PostTexture=0x4,
   PostElevation=0x5,
   WorldUpdate=0x6,
-  VehicleUpdate=0x7
+  VehicleUpdate=0x7,
+  PostDisconnect = 0x8,
 } Type;
 
 typedef struct {
@@ -49,6 +52,7 @@ typedef struct {
   int id;
   float rotational_force;
   float translational_force;
+  struct timeval time;
 } VehicleUpdatePacket;
 
 // block of the client updates, id of vehicle
@@ -59,6 +63,9 @@ typedef struct {
   float x;
   float y;
   float theta;
+  float rotational_force;
+  float translational_force;
+  struct timeval client_update_time, client_creation_time;
 } ClientUpdate;
 
 // server world update, send by server (UDP)
@@ -66,6 +73,7 @@ typedef struct {
   PacketHeader header;
   int num_vehicles;
   ClientUpdate* updates;
+  struct timeval time;
 } WorldUpdatePacket;
 
 
