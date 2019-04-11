@@ -75,6 +75,61 @@ int addUser(int id_list[], int size, int id2, int* position, int* users_online) 
   return -1;
 }
 
+// Richiedere Texture Veicolo
+Image* getVehicleTexture(int socket, int id) {
+  char buf_send[BUFFERSIZE];
+  char buf_rcv[BUFFERSIZE];
+  ImagePacket* request = (ImagePacket*)malloc(sizeof(ImagePacket));
+  PacketHeader ph;
+  ph.type = GetTexture;
+  request->header = ph;
+  request->id = id;
+  int size = Packet_serialize(buf_send, &(request->header));
+  if (size == -1) return NULL;
+  int bytes_sent = 0;
+  int ret = 0;
+  while (bytes_sent < size) {
+    ret = send(socket, buf_send + bytes_sent, size - bytes_sent, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(ret, "Can't request a texture of a vehicle");
+    if (ret == 0) break;
+    bytes_sent += ret;
+  }
+  Packet_free(&(request->header));
+
+  int ph_len = sizeof(PacketHeader);
+  int msg_len = 0;
+  while (msg_len < ph_len) {
+    ret = recv(socket, buf_rcv + msg_len, ph_len - msg_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(msg_len, "Cannot read from socket");
+    msg_len += ret;
+  }
+  PacketHeader* header = (PacketHeader*)buf_rcv;
+  size = header->size - ph_len;
+  char flag = 0;
+  if (header->type == PostDisconnect) flag = 1;
+  msg_len = 0;
+  while (msg_len < size) {
+    ret = recv(socket, buf_rcv + msg_len + ph_len, size - msg_len, 0);
+    if (ret == -1 && errno == EINTR) continue;
+    ERROR_HELPER(msg_len, "Cannot read from socket");
+    msg_len += ret;
+  }
+
+  if (flag) {
+    IdPacket* packet = (IdPacket*)Packet_deserialize(buf_rcv, msg_len + ph_len);
+    Packet_free(&packet->header);
+    return NULL;
+  }
+  ImagePacket* deserialized_packet =
+      (ImagePacket*)Packet_deserialize(buf_rcv, msg_len + ph_len);
+  printf("[Get Vehicle Texture] Received %d bytes \n", msg_len + ph_len);
+  Image* im = deserialized_packet->image;
+  free(deserialized_packet);
+  return im;
+}
+
 //UDP
 int sendUpdates(int udp_socket, struct sockaddr_in saddr, int serverlen) {
   char sendb[BUFFERSIZE];

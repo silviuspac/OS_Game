@@ -5,8 +5,8 @@ AR=ar
 
 
 BINS=libso_game.a\
-     so_game_client\
-     test_packets_serialization 
+     so_game_server\
+     so_game_client
 
 OBJS = vec3.o\
        linked_list.o\
@@ -16,7 +16,7 @@ OBJS = vec3.o\
        world.o\
        world_viewer.o\
        so_game_protocol.o\
-       client_list.o\
+       client_list.o
 
 HEADERS=helpers.h\
 	image.h\
@@ -28,7 +28,7 @@ HEADERS=helpers.h\
 	world.h\
 	world_viewer.h\
 	common.h\
-	client_list.h\
+	client_list.h
 
 %.o:	%.c $(HEADERS)
 	$(CC) $(CCOPTS) -c -o $@  $<
@@ -45,7 +45,7 @@ libso_game.a: $(OBJS)
 so_game_client: so_game_client.c libso_game.a
 	$(CC) $(CCOPTS) -Ofast -o $@ $^ $(LIBS)
 
-so_game: so_game.c libso_game.a 
+so_game_server: so_game_server.c libso_game.a
 	$(CC) $(CCOPTS) -Ofast -o $@ $^ $(LIBS)
 
 test_packets_serialization: test_packets_serialization.c libso_game.a  
@@ -53,6 +53,8 @@ test_packets_serialization: test_packets_serialization.c libso_game.a
 
 test-client:
 	./so_game_client images/arrow-right.ppm 8888
+test-server:
+	./so_game_server images/maze.pgm images/maze.ppm 8888
 
 clean:
 	rm -rf *.o *~  $(BINS)
