@@ -19,13 +19,12 @@
 #define PTHREAD_ERROR_HELPER(ret, msg)  GENERIC_ERROR_HELPER((ret != 0), ret, msg)
 
 
-#define QUIT "QUIT"
 #define MAX_CONNESSIONI 3
 #define DEBUG 1
-#define BUFFERSIZE 1000000000
+#define BUFFERSIZE 1000000
 #define RECEIVER_SLEEP_S 20 * 1000
 #define SENDER_SLEEP_S 300 * 1000
-#define PORT 4444
+#define PORT 8888
 #define WORLD_LOOP_SLEEP 100 * 1000
 #define WORLD_SIZE 512
 #define TIME_TO_SLEEP 0.1

@@ -20,6 +20,8 @@
 #include "world_viewer.h"
 #include "so_game_protocol.h"
 
+int sendGoodbye(int socket, int id);
+
 //struct
 typedef struct localWorld {
     int id_list[WORLD_SIZE];
