@@ -18,18 +18,12 @@
 #define ERROR_HELPER(ret, msg)          GENERIC_ERROR_HELPER((ret < 0), errno, msg)
 #define PTHREAD_ERROR_HELPER(ret, msg)  GENERIC_ERROR_HELPER((ret != 0), ret, msg)
 
-
-#define MAX_CONNESSIONI 3
-#define DEBUG 1
-#define BUFFERSIZE 1000000
-#define RECEIVER_SLEEP_S 20 * 1000
-#define SENDER_SLEEP_S 300 * 1000
 #define PORT 8888
+#define BUFFERSIZE 1000000
 #define WORLD_LOOP_SLEEP 100 * 1000
 #define WORLD_SIZE 512
 #define TIME_TO_SLEEP 0.1
 #define SERVER_ADDRESS "127.0.0.1"
-#define RECEIVER_SLEEP_C 50000
 #define UNTOUCHED 0
 #define TOUCHED 1
 #define HIDE_RANGE 5

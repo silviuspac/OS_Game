@@ -20,6 +20,7 @@
 
 #define RECEIVER_SLEEP 50 * 100
 #define SENDER_SLEEP 300 * 1000
+#define BUFFERSIZE 1000000
 
 // World
 World sworld;
@@ -50,11 +51,11 @@ typedef struct {
 // Invia un Packet PostDisconnect per gestire la disconnessione
 void sendDisconnect(int socket_udp, struct sockaddr_in caddr) {
   char sendb[BUFFERSIZE];
-  PacketHeader header;
-  header.type = PostDisconnect;
+  PacketHeader pheader;
+  pheader.type = PostDisconnect;
   IdPacket* ip = (IdPacket*)malloc(sizeof(IdPacket));
   ip->id = -1;
-  ip->header = header;
+  ip->header = pheader;
   int size = Packet_serialize(sendb, &(ip->header));
   int ret =
       sendto(socket_udp, sendb, size, 0, (struct sockaddr*)&caddr,
@@ -66,11 +67,11 @@ void sendDisconnect(int socket_udp, struct sockaddr_in caddr) {
       ret);
 }
 
-int UDheaderandler(int socket_udp, char* receive, struct sockaddr_in caddr) {
-  PacketHeader* header = (PacketHeader*)receive;
-  if(header->type == VehicleUpdate) {
+int UDPHandler(int socket_udp, char* receive, struct sockaddr_in caddr) {
+  PacketHeader* pheader = (PacketHeader*)receive;
+  if(pheader->type == VehicleUpdate) {
       VehicleUpdatePacket* vup =
-          (VehicleUpdatePacket*)Packet_deserialize(receive, header->size);
+          (VehicleUpdatePacket*)Packet_deserialize(receive, pheader->size);
       pthread_mutex_lock(&users_mutex);
       ClientListItem* client = ClientList_find_by_id(users, vup->id);
       if (!client->is_udp_addr_ready) {
@@ -106,16 +107,18 @@ int UDheaderandler(int socket_udp, char* receive, struct sockaddr_in caddr) {
     } else return -1; // Pacchetto mal formato
 }
 
-int TCPheaderandler(int sdesc, char* receive, Image* texture_map,
+int TCPHandler(int sdesc, char* receive, Image* texture_map,
                Image* elevation_map, int id, int* isActive) {
   PacketHeader* header = (PacketHeader*)receive;
+  printf("DEBUGGGG\n");
   switch (header->type) {
     case (GetId): {
+      printf("DEBUG ID\n");
       char sendb[BUFFERSIZE];
       IdPacket* response = (IdPacket*)malloc(sizeof(IdPacket));
-      PacketHeader header;
-      header.type = GetId;
-      response->header = header;
+      PacketHeader pheader;
+      pheader.type = GetId;
+      response->header = pheader;
       response->id = id;
       int msg_len = Packet_serialize(sendb, &(response->header));
       printf("[SendID] bytes scritti nel buffer: %d\n", msg_len);
@@ -292,8 +295,8 @@ void* TCPconn(void* args) {
   user->vehicle = NULL;
   user->prev_x = -1;
   user->prev_y = -1;
-  user->x_shift = 0;
-  user->y_shift = 0;
+  user->x_shift = -1;
+  user->y_shift = -1;
   user->last_update_time.tv_sec = -1;
   printf("[New user] Adding client with id %d \n", sock_fd);
   ClientList_insert(users, user);
@@ -314,8 +317,8 @@ void* TCPconn(void* args) {
       msg_len += ret;
     }
 
-    PacketHeader* header = (PacketHeader*)receive;
-    int size_remaining = header->size - header_len;
+    PacketHeader* pheader = (PacketHeader*)receive;
+    int size_remaining = pheader->size - header_len;
     msg_len = 0;
     while (msg_len < size_remaining) {
       int ret = recv(sock_fd, receive + msg_len + header_len,
@@ -326,7 +329,7 @@ void* TCPconn(void* args) {
         goto EXIT;
       msg_len += ret;
     }
-    int ret = TCPheaderandler(sock_fd, receive, tcp_args->surface_texture,
+    int ret = TCPHandler(sock_fd, receive, tcp_args->surface_texture,
                          tcp_args->elevation_texture, tcp_args->client_desc,
                          &isActive);
     if (ret == -1) ClientList_print(users);
@@ -368,12 +371,12 @@ void* UDPReceiver(void* args) {
                               (struct sockaddr*)&caddr, &addrlen);
     if (bytes_read == -1) goto END;
     if (bytes_read == 0) goto END;
-    PacketHeader* header = (PacketHeader*)receive;
-    if (header->size != bytes_read) {
+    PacketHeader* pheader = (PacketHeader*)receive;
+    if (pheader->size != bytes_read) {
       printf("[WARNING] Skipping partial UDP packet \n");
       goto END;
     }
-    int ret = UDheaderandler(socket_udp, receive, caddr);
+    int ret = UDPHandler(socket_udp, receive, caddr);
     if (ret == -1)
       printf(
           "[UDP_Receiver] UDP Handler couldn't manage to apply the "
@@ -405,11 +408,11 @@ void* UDPSender(void* args) {
         client = client->next;
         continue;
       }
-      PacketHeader header;
-      header.type = WorldUpdate;
+      PacketHeader pheader;
+      pheader.type = WorldUpdate;
       WorldUpdatePacket* wup =
           (WorldUpdatePacket*)malloc(sizeof(WorldUpdatePacket));
-      wup->header = header;
+      wup->header = pheader;
       int n = 0;
 
       // refresh list x,y,theta before proceding
@@ -545,6 +548,8 @@ int main(int argc, char **argv) {
   char* texture_filename=argv[2];
   long tmp = strtol(argv[3], NULL, 0);
 
+  int ret = 0;
+
   //char* vehicle_texture_filename="./images/arrow-right.ppm";
   printf("loading elevation image from %s ... ", elevation_filename);
 
@@ -567,12 +572,12 @@ int main(int argc, char **argv) {
 
   nport = htons((uint16_t)tmp);
 
-  int ret;
-  int serverTCP, serverUDP;
+
 
   // TCP
-  serverTCP = socket(AF_INET, SOCK_STREAM, 0);
-  ERROR_HELPER(serverTCP, "[TCP] Impossibile creare TCP socket");
+  printf("Creazione TCP");
+  tcp_server = socket(AF_INET, SOCK_STREAM, 0);
+  ERROR_HELPER(tcp_server, "[TCP] Impossibile creare TCP socket");
 
   struct sockaddr_in tcp_server_addr = {0};
   int saddr_len = sizeof(struct sockaddr_in);
@@ -581,13 +586,13 @@ int main(int argc, char **argv) {
   tcp_server_addr.sin_port = nport;
 
   int reuse= 1;
-  ret = setsockopt(serverTCP, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+  ret = setsockopt(tcp_server, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
   ERROR_HELPER(ret, "[ERROR] Failed setsockopt on TCP server socket!!!");
 
-  ret = bind(serverTCP, (struct sockaddr*)&tcp_server_addr, saddr_len);
+  ret = bind(tcp_server, (struct sockaddr*)&tcp_server_addr, saddr_len);
   ERROR_HELPER(ret, "[ERROR] Failed bind address on TCP server socket!!!");
 
-  ret = listen(serverTCP, 3);
+  ret = listen(tcp_server, 16);
   ERROR_HELPER(ret, "[ERROR] Failed listen on TCP server socket!!!");
   if (ret >= 0) printf("[MAIN] Server listening on port %d...\n", PORT);
 
@@ -598,9 +603,9 @@ int main(int argc, char **argv) {
 
   // UDP Init
 
-  uint16_t nportudp = htons((uint16_t)tmp);
-  serverUDP = socket(AF_INET, SOCK_DGRAM, 0);
-  ERROR_HELPER(serverUDP, "[ERROR] Failed to create UDP socket!!!");
+  uint16_t nportudp = htons((uint16_t)PORT);
+  udp_server = socket(AF_INET, SOCK_DGRAM, 0);
+  ERROR_HELPER(udp_server, "[ERROR] Failed to create UDP socket!!!");
 
   struct sockaddr_in udp_server_addr = {0};
   udp_server_addr.sin_addr.s_addr = INADDR_ANY;
@@ -608,30 +613,30 @@ int main(int argc, char **argv) {
   udp_server_addr.sin_port = nportudp;
 
   int reuse_udp = 1;
-  ret = setsockopt(serverUDP, SOL_SOCKET, SO_REUSEADDR, &reuse_udp,
+  ret = setsockopt(udp_server, SOL_SOCKET, SO_REUSEADDR, &reuse_udp,
                    sizeof(reuse_udp));
   ERROR_HELPER(ret, "[ERROR] Failed setsockopt on UDP server socket!!!");
 
-  ret = bind(serverUDP, (struct sockaddr*)&udp_server_addr,
+  ret = bind(udp_server, (struct sockaddr*)&udp_server_addr,
              sizeof(udp_server_addr));
   ERROR_HELPER(ret, "[ERROR] Failed bind address on UDP server socket!!!");
 
   printf("[MAIN] Server UDP started...\n"); 
 
-  printf("DEBUG1");
+  printf("DEBUG1\n");
   
   // Args TCP
   tcpArgs tcp_args;
-  tcp_args.elevation_texture = surface_texture;
-  tcp_args.surface_texture = surface_elevation;
+  tcp_args.elevation_texture = surface_elevation;
+  tcp_args.surface_texture = surface_texture;
   World_init(&sworld, surface_elevation, surface_texture);
 
-  printf("DEBUG");
+  printf("DEBUG\n");
 
   pthread_t UDP_receiver, UDP_sender, tcp_thread, world_thread;
-  ret = pthread_create(&UDP_receiver, NULL, UDPReceiver, &serverUDP);
+  ret = pthread_create(&UDP_receiver, NULL, UDPReceiver, &udp_server);
   PTHREAD_ERROR_HELPER(ret, "pthread_create on thread tcp failed");
-  ret = pthread_create(&UDP_sender, NULL, UDPSender, &serverUDP);
+  ret = pthread_create(&UDP_sender, NULL, UDPSender, &udp_server);
   PTHREAD_ERROR_HELPER(ret, "pthread_create on thread tcp failed");
   ret = pthread_create(&tcp_thread, NULL, TCPAuth, &tcp_args);
   PTHREAD_ERROR_HELPER(ret,
@@ -661,10 +666,10 @@ int main(int argc, char **argv) {
   pthread_mutex_destroy(&users_mutex);
   World_destroy(&sworld);
   // Close descriptors
-  ret = close(serverTCP);
-  ERROR_HELPER(ret, "Failed close() on serverTCP socket");
-  ret = close(serverUDP);
-  ERROR_HELPER(ret, "Failed close() on serverUDP socket");
+  ret = close(tcp_server);
+  ERROR_HELPER(ret, "Failed close() on tcp_server socket");
+  ret = close(udp_server);
+  ERROR_HELPER(ret, "Failed close() on udp_serve socket");
   World_destroy(&sworld);
   Image_free(surface_elevation);
   Image_free(surface_texture);

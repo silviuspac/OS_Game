@@ -20,6 +20,10 @@
 #include "world_viewer.h"
 #include "so_game_protocol.h"
 
+#define WORLD_SIZE 512
+#define SENDER_SLEEP_C 200 * 1000
+#define RECEIVER_SLEEP_C 50 * 1000
+
 int sendGoodbye(int socket, int id);
 
 //struct

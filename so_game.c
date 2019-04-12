@@ -11,6 +11,7 @@
 #include "world_viewer.h"
 #include <pthread.h>
 
+
 World world;
 Vehicle* vehicle; // The vehicle
 
