@@ -598,7 +598,7 @@ int main(int argc, char **argv) {
 
   // UDP Init
 
-  uint16_t nportudp = htons((uint16_t)PORT);
+  uint16_t nportudp = htons((uint16_t)tmp);
   serverUDP = socket(AF_INET, SOCK_DGRAM, 0);
   ERROR_HELPER(serverUDP, "[ERROR] Failed to create UDP socket!!!");
 

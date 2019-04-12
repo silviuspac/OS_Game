@@ -56,8 +56,8 @@ pthread_mutex_t time_lock = PTHREAD_MUTEX_INITIALIZER;
 char connectivity = 1;
 char exchange_update = 1;
 
-int addUser(int id_list[], int size, int id2, int* position, int* users_online) {
-  if (*users_online == WORLD_SIZE) {
+int addUser(int id_list[], int size, int id2, int* position, int* players_online) {
+  if (*players_online == WORLD_SIZE) {
     *position = -1;
     return -1;
   }
@@ -69,7 +69,7 @@ int addUser(int id_list[], int size, int id2, int* position, int* users_online) 
   for (int i = 0; i < size; i++) {
     if (id_list[i] == -1) {
       id_list[i] = id2;
-      *users_online += 1;
+      *players_online += 1;
       *position = i;
       break;
     }
@@ -181,7 +181,7 @@ void* UDPReceiver(void* args) {
   int udp_socket = udp_args.udp_socket;
   socklen_t saddrlen = sizeof(saddr);
   localWorld* lw = udp_args.lw;
-  int socket_tcp = udp_args.tcp_socket;
+  int tcp_socket = udp_args.tcp_socket;
   while (connectivity && exchange_update) {
     char receive[BUFFERSIZE];
     int read = recvfrom(udp_socket, receive, BUFFERSIZE, 0,
@@ -250,7 +250,7 @@ void* UDPReceiver(void* args) {
                    world_update->updates[i].id, world_update->updates[i].x, 
                    world_update->updates[i].y,
                    world_update->updates[i].theta);
-            Image* img = getVehicleTexture(socket_tcp, world_update->updates[i].id);
+            Image* img = getVehicleTexture(tcp_socket, world_update->updates[i].id);
             if (img == NULL) continue;
             Vehicle* new_vehicle = (Vehicle*)malloc(sizeof(Vehicle));
             Vehicle_init(new_vehicle, &world, world_update->updates[i].id, img);
@@ -279,7 +279,7 @@ void* UDPReceiver(void* args) {
                 if (im != NULL) Image_free(im);
                 free(lw->vehicles[id_struct]);
               }
-              Image* img = getVehicleTexture(socket_tcp, world_update->updates[i].id);
+              Image* img = getVehicleTexture(tcp_socket, world_update->updates[i].id);
               if (img == NULL) continue;
               Vehicle* new_vehicle = (Vehicle*)malloc(sizeof(Vehicle));
               Vehicle_init(new_vehicle, &world, world_update->updates[i].id, img);
@@ -367,7 +367,7 @@ int getID(int sdesc){
   int ret = 0;
 
   while(sent<size){
-    ret = send(sdesc, sendb+sent, size-sent, 0);
+    ret = send(sdesc, sendb + sent, size - sent, 0);
     if(ret == 1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Errore richiesta id");
     if(ret == 0) break;
@@ -574,58 +574,41 @@ int sendGoodbye(int socket, int id) {
 
 
 
-int main(int argc, char **argv) {
-  if (argc<3) {
-    printf("usage: %s <player texture> <port_number>\n", argv[1]);
+int main(int argc, char** argv) {
+  if (argc < 3) {
+    printf("usage: %s <player texture> <port_number> \n", argv[1]);
     exit(-1);
   }
-
-  printf("loading texture image from %s ... ", argv[1]);
+  fprintf(stdout, "[Main] loading vehicle texture from %s ... ", argv[1]);
   Image* my_texture = Image_load(argv[1]);
   if (my_texture) {
     printf("Done! \n");
   } else {
     printf("Fail! \n");
   }
-  
-  // todo: connect to the server
-  //   -get ad id
-  //   -send your texture to the server (so that all can see you)
-  //   -get an elevation map
-  //   -get the texture of the surface
-
   long tmp = strtol(argv[2], NULL, 0);
 
-  int ret;
-
+  fprintf(stdout, "[Main] Starting... \n");
   last_update_time.tv_sec = -1;
-  nport = htons((uint16_t)tmp);
+  nport = htons((uint16_t)tmp);  // we use network byte order
   sdesc = socket(AF_INET, SOCK_STREAM, 0);
-  in_addr_t ip = inet_addr(SERVER_ADDRESS);
-  ERROR_HELPER(sdesc, "Errore creazione socket \n");
-  struct sockaddr_in saddr = {0};
-  saddr.sin_addr.s_addr = ip;
-  saddr.sin_family = AF_INET;
-  saddr.sin_port = nport;
+  in_addr_t ip_addr = inet_addr(SERVER_ADDRESS);
+  ERROR_HELPER(sdesc, "Cannot create socket \n");
+  struct sockaddr_in server_addr = {
+      0};  // some fields are required to be filled with 0
+  server_addr.sin_addr.s_addr = ip_addr;
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = nport;
 
-  int reuseaddr = 1;
-  ret = setsockopt(sdesc, SOL_SOCKET, SO_REUSEADDR, &reuseaddr, sizeof(reuseaddr));
-  ERROR_HELPER (ret, "Errore SO_REUSEADDR");
+  int reuseaddr_opt = 1;  // recover server if a crash occurs
+  int ret = setsockopt(sdesc, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_opt,
+                       sizeof(reuseaddr_opt));
+  ERROR_HELPER(ret, "Can't set SO_REUSEADDR flag");
 
-  ret = connect(sdesc, (struct sockaddr*)&saddr, sizeof(struct sockaddr_in));
-  ERROR_HELPER(ret, "Errore connessione al server");
-  printf("[MAIN] Connessione stabilita...\n");
-
-  // Apertura connessione UDP
-  uint16_t port_udp = htons((uint16_t)PORT);
-  udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
-  ERROR_HELPER(udp_socket, "[ERROR] Can't create an UDP socket");
-  struct sockaddr_in udp_server = { 0 };
-  udp_server.sin_addr.s_addr = ip;
-  udp_server.sin_family = AF_INET;
-  udp_server.sin_port = port_udp;
-
-  gettimeofday(&start_time, NULL);  // Accounting
+  ret = connect(sdesc, (struct sockaddr*)&server_addr,
+                sizeof(struct sockaddr_in));
+  ERROR_HELPER(ret, "Cannot connect to remote server \n");
+  printf("[Main] TCP connection established... \n");
 
   // setting up localWorld
   localWorld* local_world = (localWorld*)malloc(sizeof(localWorld));
@@ -635,69 +618,66 @@ int main(int argc, char **argv) {
     local_world->hv[i] = 0;
   }
 
-
-  printf("[Main] Inizializzazione ID, richieste map_elevation, map_texture\n");
-  int id = getID(sdesc);
-  printf("Ricevuto ID n: %d\n", id);
-  local_world->id_list[0] = id;
-
+  // Talk with server
+  fprintf(stdout, "[Main] Starting ID,map_elevation,map_texture requests \n");
+  myid = getID(sdesc);
+  local_world->id_list[0] = myid;
+  fprintf(stdout, "[Main] ID number %d received \n", myid);
   Image* surface_elevation = getElevationMap(sdesc);
-  printf("Elevation ricevuta\n");
-
+  fprintf(stdout, "[Main] Map elevation received \n");
   Image* surface_texture = getTextureMap(sdesc);
-  printf("Texture ricevuta\n");
+  fprintf(stdout, "[Main] Map texture received \n");
+  printf("[Main] Sending vehicle texture");
+  sendVehicleTexture(sdesc, my_texture, myid);
+  fprintf(stdout, "[Main] Client Vehicle texture sent \n");
 
-  sendVehicleTexture(sdesc, my_texture, id);
-  printf("Texture veicolo inviate\n");
-
-  // construct the world
+  // create Vehicle
   World_init(&world, surface_elevation, surface_texture);
-  vehicle=(Vehicle*) malloc(sizeof(Vehicle));
-  Vehicle_init(vehicle, &world, id, my_texture);
+  vehicle = (Vehicle*)malloc(sizeof(Vehicle));
+  Vehicle_init(vehicle, &world, myid, my_texture);
   World_addVehicle(&world, vehicle);
   local_world->vehicles[0] = vehicle;
   local_world->hv[0] = 1;
 
-  // spawn a thread that will listen the update messages from
-  // the server, and sends back the controls
-  // the update for yourself are written in the desired_*_force
-  // fields of the vehicle variable
-  // when the server notifies a new player has joined the game
-  // request the texture and add the player to the pool
-  /*FILLME*/
+  // UDP Init
+  uint16_t port_number_udp =
+      htons((uint16_t)tmp);  // we use network byte order
+  udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+  ERROR_HELPER(sdesc, "Can't create an UDP socket");
+  struct sockaddr_in udp_server = {0};
+  udp_server.sin_addr.s_addr = ip_addr;
+  udp_server.sin_family = AF_INET;
+  udp_server.sin_port = port_number_udp;
+  printf("[Main] Socket UDP created and ready to work \n");
+  gettimeofday(&start_time, NULL);  // Accounting
 
-  pthread_t UDPSender_thread, UDPReceiver_thread;
+  // Create UDP Threads
+  pthread_t UDP_sender, UDP_receiver;
   udpArgs udp_args;
   udp_args.tcp_socket = sdesc;
   udp_args.saddr = udp_server;
   udp_args.udp_socket = udp_socket;
   udp_args.lw = local_world;
-  
-
-  // Threads
-  ret = pthread_create(&UDPSender_thread, NULL, UDPSender, &udp_args);
-  PTHREAD_ERROR_HELPER(ret, "Errore creazione UDPsender");
-
-  ret = pthread_create(&UDPReceiver_thread, NULL, UDPReceiver, &udp_args);
-  PTHREAD_ERROR_HELPER(ret, "Errore creazione UDPReceiver");
-
+  ret = pthread_create(&UDP_sender, NULL, UDPSender, &udp_args);
+  PTHREAD_ERROR_HELPER(ret, "[MAIN] pthread_create on thread UDP_sender");
+  ret = pthread_create(&UDP_receiver, NULL, UDPReceiver, &udp_args);
+  PTHREAD_ERROR_HELPER(ret, "[MAIN] pthread_create on thread UDP_receiver");
   WorldViewer_runGlobal(&world, vehicle, &argc, argv);
 
   // Waiting threads to end and cleaning resources
-  printf("Chiusura UDP e TCP threads \n");
+  printf("[Main] Disabling and joining on UDP and TCP threads \n");
   connectivity = 0;
   exchange_update = 0;
-  ret = pthread_join(UDPSender_thread, NULL);
-  PTHREAD_ERROR_HELPER(ret, "pthread_join on thread UDPSender failed");
-  ret = pthread_join(UDPReceiver_thread, NULL);
-  PTHREAD_ERROR_HELPER(ret, "pthread_join on thread UDPReceiver failed");
+  ret = pthread_join(UDP_sender, NULL);
+  PTHREAD_ERROR_HELPER(ret, "pthread_join on thread UDP_sender failed");
+  ret = pthread_join(UDP_receiver, NULL);
+  PTHREAD_ERROR_HELPER(ret, "pthread_join on thread UDP_receiver failed");
   ret = close(udp_socket);
   ERROR_HELPER(ret, "Failed to close UDP socket");
 
   fprintf(stdout, "[Main] Cleaning up... \n");
-  sendGoodbye(sdesc, id);
+  sendGoodbye(sdesc, myid);
 
-  // cleanup
   // Clean resources
   pthread_mutex_destroy(&time_lock);
   for (int i = 0; i < WORLD_SIZE; i++) {
@@ -720,5 +700,5 @@ int main(int argc, char **argv) {
   Image_free(surface_elevation);
   Image_free(surface_texture);
   Image_free(my_texture);
-  exit(EXIT_SUCCESS);            
+  exit(EXIT_SUCCESS);
 }
