@@ -163,6 +163,7 @@ int sendUpdates(int udp_socket, struct sockaddr_in saddr, int serverlen) {
   return 0;
 }
 
+//Invia vehicle update
 void* UDPSender(void* args){
 
   udpArgs udp_args = *(udpArgs*)args;
@@ -174,11 +175,12 @@ void* UDPSender(void* args){
     int ret = sendUpdates(udp_socket, saddr, saddr_len);
     ERROR_HELPER(ret, "Errore invio updates al server");
 
-    usleep(TIME_TO_SLEEP);
+    usleep(SENDER_SLEEP);
   }
   pthread_exit(NULL);
 }
 
+//riceve world update
 void* UDPReceiver(void* args) {
 
   udpArgs udp_args = *(udpArgs*)args;

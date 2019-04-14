@@ -18,9 +18,8 @@
 #include "world_viewer.h"
 #include "so_game_protocol.h"
 
-#define RECEIVER_SLEEP 50 * 100
+#define RECEIVER_SLEEP 20 * 1000
 #define SENDER_SLEEP 300 * 1000
-#define BUFFERSIZE 1000000
 
 // World
 World sworld;
@@ -98,7 +97,7 @@ int UDPHandler(int socket_udp, char* receive, struct sockaddr_in caddr) {
       client->prev_y = client->y;
       client->last_update_time = vup->time;
       fprintf(stdout,
-              "[UDP_Receiver] Applied VehicleUpdatePacket with "
+              "[UDPReceiver] Applicato VehicleUpdatePacket con "
               "force_translational_update: %f force_rotation_update: %f.. \n",
               vup->translational_force, vup->rotational_force);
       pthread_mutex_unlock(&users_mutex);
@@ -110,10 +109,10 @@ int UDPHandler(int socket_udp, char* receive, struct sockaddr_in caddr) {
 int TCPHandler(int sdesc, char* receive, Image* texture_map,
                Image* elevation_map, int id, int* isActive) {
   PacketHeader* header = (PacketHeader*)receive;
-  printf("DEBUGGGG\n");
+
   switch (header->type) {
     case (GetId): {
-      printf("DEBUG ID\n");
+      
       char sendb[BUFFERSIZE];
       IdPacket* response = (IdPacket*)malloc(sizeof(IdPacket));
       PacketHeader pheader;
@@ -176,7 +175,7 @@ int TCPHandler(int sdesc, char* receive, Image* texture_map,
         pthread_mutex_unlock(&users_mutex);
         image_packet->header = im_head;
         int msg_len = Packet_serialize(sendb, &image_packet->header);
-        printf("[Send Vehicle Texture] bytes scritti nel buffer: %d\n", msg_len);
+        printf("[SendVehicleTexture] bytes scritti nel buffer: %d\n", msg_len);
         int sent = 0;
         int ret = 0;
         while (sent < msg_len) {
@@ -219,7 +218,7 @@ int TCPHandler(int sdesc, char* receive, Image* texture_map,
       image_packet->image = elevation_map;
       image_packet->header = im_head;
       int msg_len = Packet_serialize(sendb, &image_packet->header);
-      printf("[Send Map Elevation] bytes scritti nel buffer: %d\n", msg_len);
+      printf("[SendMapElevation] bytes scritti nel buffer: %d\n", msg_len);
       int sent = 0;
       int ret = 0;
       while (sent < msg_len) {
@@ -230,7 +229,7 @@ int TCPHandler(int sdesc, char* receive, Image* texture_map,
         sent += ret;
       }
       free(image_packet);
-      printf("[Send Map Elevation] Sent %d bytes \n", sent);
+      printf("[SendMapElevation] Sent %d bytes \n", sent);
       return 0;
     }
     case (PostTexture): {
@@ -245,7 +244,7 @@ int TCPHandler(int sdesc, char* receive, Image* texture_map,
       fflush(stdout);
 
       if (user == NULL) {
-        printf("[Set Texture] User not found \n");
+        printf("[SetTexture] Utente non trovato \n");
         pthread_mutex_unlock(&users_mutex);
         Packet_free(&(deserialized_packet->header));
         return -1;
@@ -262,12 +261,12 @@ int TCPHandler(int sdesc, char* receive, Image* texture_map,
       user->vehicle = vehicle;
       World_addVehicle(&sworld, vehicle);
       pthread_mutex_unlock(&users_mutex);
-      printf("[Set Texture] Vehicle texture applied to user with id %d \n", id);
+      printf("[SetTexture] Texture veicolo applicata all'id %d \n", id);
       free(deserialized_packet);
       return 0;
     }
     case (PostDisconnect): {
-      printf("[Notify Disconnect] User disconnect...");
+      printf("[NotifyDisconnect] User disconnect...");
       *isActive = 0;
       return 0;
     }
@@ -298,7 +297,7 @@ void* TCPconn(void* args) {
   user->x_shift = -1;
   user->y_shift = -1;
   user->last_update_time.tv_sec = -1;
-  printf("[New user] Adding client with id %d \n", sock_fd);
+  printf("[Newuser] Aggiungo client con id %d \n", sock_fd);
   ClientList_insert(users, user);
   ClientList_print(users);
   has_users = 1;
@@ -317,8 +316,8 @@ void* TCPconn(void* args) {
       msg_len += ret;
     }
 
-    PacketHeader* pheader = (PacketHeader*)receive;
-    int size_remaining = pheader->size - header_len;
+    PacketHeader* header = (PacketHeader*)receive;
+    int size_remaining = header->size - header_len;
     msg_len = 0;
     while (msg_len < size_remaining) {
       int ret = recv(sock_fd, receive + msg_len + header_len,

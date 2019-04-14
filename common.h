@@ -21,7 +21,6 @@
 #define BUFFERSIZE 1000000
 #define WORLD_LOOP_SLEEP 100 * 1000
 #define WORLD_SIZE 512
-#define TIME_TO_SLEEP 0.1
 #define SERVER_ADDRESS "127.0.0.1"
-#define HIDE_RANGE 3
+#define HIDE_RANGE 4
 #endif
