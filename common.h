@@ -18,13 +18,10 @@
 #define ERROR_HELPER(ret, msg)          GENERIC_ERROR_HELPER((ret < 0), errno, msg)
 #define PTHREAD_ERROR_HELPER(ret, msg)  GENERIC_ERROR_HELPER((ret != 0), ret, msg)
 
-#define PORT 8888
 #define BUFFERSIZE 1000000
 #define WORLD_LOOP_SLEEP 100 * 1000
 #define WORLD_SIZE 512
 #define TIME_TO_SLEEP 0.1
 #define SERVER_ADDRESS "127.0.0.1"
-#define UNTOUCHED 0
-#define TOUCHED 1
-#define HIDE_RANGE 5
+#define HIDE_RANGE 3
 #endif

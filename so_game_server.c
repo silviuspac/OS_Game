@@ -594,7 +594,7 @@ int main(int argc, char **argv) {
 
   ret = listen(tcp_server, 16);
   ERROR_HELPER(ret, "[ERROR] Failed listen on TCP server socket!!!");
-  if (ret >= 0) printf("[MAIN] Server listening on port %d...\n", PORT);
+  if (ret >= 0) printf("[MAIN] Server listening on port %d...\n", tmp);
 
   // init List structure
   users = malloc(sizeof(ClientListHead));
@@ -603,7 +603,7 @@ int main(int argc, char **argv) {
 
   // UDP Init
 
-  uint16_t nportudp = htons((uint16_t)PORT);
+  uint16_t nportudp = htons((uint16_t)tmp);
   udp_server = socket(AF_INET, SOCK_DGRAM, 0);
   ERROR_HELPER(udp_server, "[ERROR] Failed to create UDP socket!!!");
 

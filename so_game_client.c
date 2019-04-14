@@ -20,9 +20,10 @@
 #include "world_viewer.h"
 #include "so_game_protocol.h"
 
-#define WORLD_SIZE 512
-#define SENDER_SLEEP_C 200 * 1000
-#define RECEIVER_SLEEP_C 50 * 1000
+#define SENDER_SLEEP 200 * 1000
+#define RECEIVER_SLEEP 50 * 1000
+#define UNTOUCHED 0
+#define TOUCHED 1
 
 int sendGoodbye(int socket, int id);
 
@@ -192,11 +193,11 @@ void* UDPReceiver(void* args) {
                               (struct sockaddr*)&saddr, &saddrlen);
     if (read == -1) {
       printf("[UDPReceiver] Impossibile riceve pacchetto \n");
-      usleep(RECEIVER_SLEEP_C);
+      usleep(RECEIVER_SLEEP);
       continue;
     }
     if (read == 0) {
-      usleep(RECEIVER_SLEEP_C);
+      usleep(RECEIVER_SLEEP);
       continue;
     }
 
@@ -204,7 +205,7 @@ void* UDPReceiver(void* args) {
     PacketHeader* header = (PacketHeader*)receive;
     if (header->size != read) {
       printf("[UDPReceiver] Lettura parziale del pacchetto \n");
-      usleep(RECEIVER_SLEEP_C);
+      usleep(RECEIVER_SLEEP);
       continue;
     }
     switch (header->type) {
@@ -223,7 +224,7 @@ void* UDPReceiver(void* args) {
           pthread_mutex_unlock(&time_lock);
           printf("Letture parziale di world update... \n");
           Packet_free(&world_update->header);
-          usleep(RECEIVER_SLEEP_C);
+          usleep(RECEIVER_SLEEP);
           continue;
         }
 
@@ -348,7 +349,7 @@ void* UDPReceiver(void* args) {
         WorldViewer_exit(-1);
       }
     }
-    usleep(RECEIVER_SLEEP_C);
+    usleep(RECEIVER_SLEEP);
   }
   pthread_exit(NULL);
 }
@@ -457,10 +458,10 @@ Image* getElevationMap(int socket){
   int ret = 0;
 
   while(sent < size){
-    ret = send(socket, sendb+sent, size - sent, 0);
-    if(ret==-1 && errno == EINTR) continue;
+    ret = send(socket, sendb + sent, size - sent, 0);
+    if(ret == -1 && errno == EINTR) continue;
     ERROR_HELPER(ret, "Errore richiesta Elevation Map");
-    if(ret==0) break;
+    if(ret == 0) break;
     sent+=ret;
   }
 
