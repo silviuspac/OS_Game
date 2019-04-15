@@ -22,5 +22,5 @@
 #define WORLD_LOOP_SLEEP 100 * 1000
 #define WORLD_SIZE 512
 #define SERVER_ADDRESS "127.0.0.1"
-#define HIDE_RANGE 4
+#define HIDE_RANGE 8
 #endif
